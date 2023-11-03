@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 #///////////////////////////////////////// Functions /////////////////////////////////////////
 
-def plot_hist(data: list, name: list = [''], title: str = '', x_label: str = '', y_label: str ='') -> None:
+def plot_hist(data: list, name: list = [], title: str = '', x_label: str = '', y_label: str ='', bins: int = 0) -> None:
     '''
     Plot an histogram.
     '''
@@ -20,11 +20,74 @@ def plot_hist(data: list, name: list = [''], title: str = '', x_label: str = '',
             plt.legend(name)
     else:
         for e in data:
-            e.hist()
+            if bins > 0:
+                e.hist(bins=bins)
+            else:
+                e.hist()
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.show()
+
+def split_data(data: object, columns: list, message: str = '') -> list:
+    '''
+    Split a data frame by the columns indicated and store it in a list
+    '''
+    print(f'> {message}')
+    result = []
+    lim = len(columns)
+    for i in range(lim):
+        sel = data[data["platform"] == columns[i]]
+        print(f'{columns[i]}: {len(sel)}')
+        result.append(sel)
+    del sel
+    return result
+
+def single_correlation(data: object, var: list) -> None:
+    '''
+    Print the correlation between two variables and plot the data in a scatter plot
+    '''
+    a = var[0]
+    b = var[1]
+    
+    corr = data[[a, b]].corr()[a][b] 
+    print(f'> Corraletion between {a} and {b} is: {corr}')
+
+    data.plot.scatter(x=a, y=b, grid=True, alpha=0.3)
+    plt.title(f'Correlation: {corr}')
+    plt.show()
+
+def dist_analysis(data: object, objective: str, elements: str, corr_lists: list) -> None:
+    '''
+    Analysis of data distribution and correlation between multiple variables
+    '''
+    # Print highest value
+    h = data[objective].max()
+    print('> The highest value in the data is: ', h)
+    
+    # Ploting hist
+    data[objective].hist()
+    plt.title(f'Highest value: {h}')
+    plt.show()
+
+    # Does the data need a transformation?
+    res = input('> Does the data need a transformation? (y/n): ')
+
+    if res.lower() == 'y':
+        data_lg = data.copy()
+        data_lg[objective] = np.log(data[objective])
+        data = data_lg
+
+    # Sales box plot by platform
+    data.boxplot(column=objective, by=elements)
+    plt.show()
+
+    # Scatter plots
+    for e in corr_lists:
+        single_correlation(data, e)
+
+    del data
+
 
 #///////////////////////////////////////// Initialization /////////////////////////////////////////
 
@@ -65,27 +128,53 @@ data['total_sales'] = data['na_sales'] + data['eu_sales'] + data['jp_sales'] + d
 # Ploting year of release
 plot_hist([data['year_of_release']], title='Units released per year', x_label='Year', y_label='Units')
 
-# Ploting sales per platform
-plot_hist([data['platform']], title='Total sales per platform', x_label='Platform', y_label='Units')
+# Ploting videogame units per platform
+plot_hist([data['platform']], title='Total videogames per platform', x_label='Platform', y_label='Units')
 
-# Spliting data by best selling plataforms (DS, X360, PS3, PS2)
-b_sellers = ['DS', 'X360', 'PS3', 'PS2']
+# Spliting data by more diverse plataforms
+platform = ['DS', 'X360', 'PS3', 'PS2']
+result = split_data(data, platform, 'Video games available: ')
 
-# Best seller by platform
-print('> Best sellers:')
-result = []
-for i in range(4):
-    sel = data[data["platform"] == b_sellers[i]]
-    print(f'{b_sellers[i]}: {len(sel)}')
-    result.append(sel)
+# Ploting videogames per platform
+platform = ['Nintendo DS', 'Xbox 360', 'Playstation 3', 'Playstation 2']
+titles = [f'{c}  titles available per year' for c in platform]
+lim = len(platform)
+for i in range(lim):
+    plot_hist([result[i]['year_of_release']], title=titles[i], x_label='Year', y_label='Units')
 
-data_ds, data_x360, data_ps3, data_ps2 = result
-del result, sel
+# Ploting generetion sales per company
+companies = ['Microsoft', 'Sony', 'Nintendo', 'Sony portable', 'Nintendo portable']
+platforms = [['XB', 'X360', 'XOne'], ['PS', 'PS2', 'PS3', 'PS4'], ['NES', 'SNES', 'N64', 'GC', 'Wii', 'WiiU'], ['PSP', 'PSV'], ['GB','GBA','DS','3DS']]
+lim = len(companies)
+plats = {companies[i]:platforms[i] for i in range(lim)}
 
-# Ploting sales per platform
-plot_hist([data_ds['year_of_release']], title='Nintendo DS sales per year', x_label='Year', y_label='Units')
-plot_hist([data_x360['year_of_release']], title='Xbox 360 sales per year', x_label='Year', y_label='Units')
-plot_hist([data_ps2['year_of_release']], title='Play Station 2 sales per year', x_label='Year', y_label='Units')
-plot_hist([data_ps3['year_of_release']], title='Play Station 3 sales per year', x_label='Year', y_label='Units')
+for c in companies:
+    plat = plats[c]
+    result = split_data(data, plat, 'Sells: ')
+    plot_hist([d['year_of_release'] for d in result], plat, title=f'Videogames available in {c} consoles', x_label='Year', y_label='Units')
 
-plot_hist([data_ps2['year_of_release'], data_ps3['year_of_release']], ['PS2', 'PS3'])
+# Printing most selled by platform
+print('> Best selling by platform')
+print(data.groupby('platform')['total_sales'].sum().sort_values(ascending=False))
+
+# New data
+data = data[data['year_of_release'] >= 2000]
+
+# Split data by console type, home console (hc) and portable console (pc)
+platforms_hc = platforms[:3]
+platforms_pc = platforms[3:]
+
+data_hc = data[data['platform'].isin(platforms_hc[0] + platforms_hc[1] + platforms_hc[2])]
+data_pc = data[data['platform'].isin(platforms_pc[0] + platforms_pc[1])]
+
+# Analysis
+dist_analysis(data_hc, 'total_sales', 'platform', [['critic_score', 'total_sales'], ['user_score', 'total_sales']])
+
+# Same analysis, other data
+dist_analysis(data_pc, 'total_sales', 'platform', [['critic_score', 'total_sales'], ['user_score', 'total_sales']])
+
+# Distribution per genre in home consoles
+plot_hist([data_hc['genre']], title='Total videogames per genre', x_label='Genre', y_label='Units', bins=len(data_hc['genre'].unique()))
+
+# Best sellers
+print('> Best sellers: \n', data_hc[data_hc['total_sales'] > 10])
