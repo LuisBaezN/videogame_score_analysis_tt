@@ -105,6 +105,23 @@ def reg_analysis(data: object, client: str, objective: str, elements_1: str, ele
 
     return res
 
+def sample_mean(data: object, req_data: int, data_size: int, col_name: str) -> object:
+    '''
+    Sample a data set  mean
+    '''
+    sample_size = data_size//req_data
+    res = []
+    print('> Your sample has a size of: ', sample_size)
+    if sample_size <= 1:
+        print('> Insuficient data')
+    else:
+        for _ in range(req_data):
+            res.append(data.sample(sample_size).mean())
+    
+    res = pd.DataFrame(res, columns=[col_name])
+
+    return res
+
 #///////////////////////////////////////// Initialization /////////////////////////////////////////
 
 # Loading data
@@ -214,3 +231,28 @@ lim = len(res_na)
 for i in range(lim):
     print(f'\n> {titles[i]}:')
     print(pd.concat([res_na[i], res_eu[i], res_jp[i]], axis=1))
+
+del data_hc, data_pc, res_na, res_eu, res_jp 
+
+#///////////////////////////////////////// Hypothesis test /////////////////////////////////////////
+
+# Testing users scores mean between xbox One and PC
+data_xo = data[data['platform'] == 'XOne']
+data_pc = data[data['platform'] == 'PC']
+
+# Total data
+size_xo = data_xo.shape[0]
+size_pc = data_pc.shape[0]
+print('> Total Xbox One data:', size_xo)
+print('> Total PC data:', size_pc)
+
+# Plot histograms
+plot_hist([data_xo['user_score']], title='Xbox One user scores', x_label='Score', y_label='Users')
+plot_hist([data_pc['user_score']], title='PC user scores', x_label='Score', y_label='Users')
+
+# Taking samples
+sample_xo = sample_mean(data_xo['user_score'], 30, np.min([size_xo, size_pc]) , 'mean_score')
+plot_hist([sample_xo])
+
+sample_pc = sample_mean(data_pc['user_score'], 30, np.min([size_xo, size_pc]) , 'mean_score')
+plot_hist([sample_pc])
