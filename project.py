@@ -88,6 +88,22 @@ def dist_analysis(data: object, objective: str, elements: str, corr_lists: list)
 
     del data
 
+def reg_analysis(data: object, client: str, objective: str, elements_1: str, elements_2: str, elements_3: str) -> list:
+    '''
+    Print most popular elements, and other metrics
+    '''
+    res = [data.groupby(elements_1)[objective].sum().sort_values(ascending = False).head(5)]
+    
+    res.append(data.groupby(elements_1)[elements_1].value_counts().sort_values(ascending=False).head(5))
+
+    res.append(data.groupby(elements_2)[elements_2].value_counts().sort_values(ascending=False).head(5))
+
+    res.append(data.groupby(elements_3)[objective].sum().sort_values(ascending = False).head())
+
+    for t in res:
+        t.name = client
+
+    return res
 
 #///////////////////////////////////////// Initialization /////////////////////////////////////////
 
@@ -173,8 +189,28 @@ dist_analysis(data_hc, 'total_sales', 'platform', [['critic_score', 'total_sales
 # Same analysis, other data
 dist_analysis(data_pc, 'total_sales', 'platform', [['critic_score', 'total_sales'], ['user_score', 'total_sales']])
 
-# Distribution per genre in home consoles
+# Distribution by genre in home consoles
 plot_hist([data_hc['genre']], title='Total videogames per genre', x_label='Genre', y_label='Units', bins=len(data_hc['genre'].unique()))
 
 # Best sellers
 print('> Best sellers: \n', data_hc[data_hc['total_sales'] > 10])
+
+#///////////////////////////////////////// Regions /////////////////////////////////////////
+
+obj = data_hc[(data_hc['na_sales'] > 0) & (data_hc['eu_sales'] == 0) & (data_hc['jp_sales'] == 0)]
+client = 'North America'
+res_na = reg_analysis(obj, client, 'total_sales', 'platform', 'genre', 'rating')
+
+obj = data_hc[(data_hc['eu_sales'] > 0) & (data_hc['na_sales'] == 0) & (data_hc['jp_sales'] == 0)]
+client = 'Europe'
+res_eu = reg_analysis(obj, client, 'total_sales', 'platform', 'genre', 'rating')
+
+obj = data_hc[(data_hc['jp_sales'] > 0) & (data_hc['eu_sales'] == 0) & (data_hc['na_sales'] == 0)]
+client = 'Japan'
+res_jp = reg_analysis(obj, client, 'total_sales', 'platform', 'genre', 'rating')
+
+titles = ['Sales', 'Platforms', 'Genres', 'Ratings']
+lim = len(res_na)
+for i in range(lim):
+    print(f'\n> {titles[i]}:')
+    print(pd.concat([res_na[i], res_eu[i], res_jp[i]], axis=1))
