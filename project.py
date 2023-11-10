@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import scipy.stats as st
 
 #///////////////////////////////////////// Functions /////////////////////////////////////////
 
@@ -105,6 +106,28 @@ def reg_analysis(data: object, client: str, objective: str, elements_1: str, ele
 
     return res
 
+def two_mean_z(data_1: object, data_2: object, column: str, D_0: float = 0) -> float:
+    '''
+    Calculate the z score for mean comparision of two large populations
+    '''
+    d_0 = D_0
+    x_1 = data_1[column].mean()
+    x_2 = data_2[column].mean()
+    s_1 = data_1[column].std()
+    s_2 = data_2[column].std()
+    n_1 = len(data_1)
+    n_2 = len(data_2)
+
+    return ((x_1 - x_2) - d_0) / (np.sqrt(s_1**2/n_1 + s_2**2/n_2))
+
+def test_hyp(z_score: float, rejection_point: float, test_type: str = 't'):
+    if test_type == 't':
+        if z_score < -rejection_point or z_score > rejection_point:
+            print('> The null hipothesis is rejected.')
+        else:
+            print('> The null hipothesis is accepted.')    
+
+# Not used
 def sample_mean(data: object, req_data: int, data_size: int, col_name: str) -> object:
     '''
     Sample a data set  mean
@@ -127,6 +150,10 @@ def sample_mean(data: object, req_data: int, data_size: int, col_name: str) -> o
 # Loading data
 path = 'datasets/games.csv'
 data = pd.read_csv(path)
+
+# Initialize seed
+
+np.random.seed(137)
 
 #///////////////////////////////////////// Data cleaning /////////////////////////////////////////
 
@@ -184,7 +211,7 @@ plats = {companies[i]:platforms[i] for i in range(lim)}
 for c in companies:
     plat = plats[c]
     result = split_data(data, plat, 'Sells: ')
-    plot_hist([d['year_of_release'] for d in result], plat, title=f'Videogames available in {c} consoles', x_label='Year', y_label='Units')
+    plot_hist([d['year_of_release'] for d in result], plat, title=f'Videogames available to {c} consoles', x_label='Year', y_label='Units')
 
 # Printing most selled by platform
 print('> Best selling by platform')
@@ -240,6 +267,8 @@ del data_hc, data_pc, res_na, res_eu, res_jp
 data_xo = data[data['platform'] == 'XOne']
 data_pc = data[data['platform'] == 'PC']
 
+var = 'user_score'
+
 # Total data
 size_xo = data_xo.shape[0]
 size_pc = data_pc.shape[0]
@@ -247,12 +276,63 @@ print('> Total Xbox One data:', size_xo)
 print('> Total PC data:', size_pc)
 
 # Plot histograms
-plot_hist([data_xo['user_score']], title='Xbox One user scores', x_label='Score', y_label='Users')
-plot_hist([data_pc['user_score']], title='PC user scores', x_label='Score', y_label='Users')
+plot_hist([data_pc[var], data_xo[var]], name=['PC', 'Xbox One'], title='User scores', x_label='Score', y_label='Users')
+plot_hist([data_xo[var]], title='Xbox One user scores', x_label='Score', y_label='Users')
+plot_hist([data_pc[var]], title='PC user scores', x_label='Score', y_label='Users')
 
+# Plot boxplot
+data_xo.boxplot(column=var, by='platform')
+data_pc.boxplot(column=var, by='platform')
+plt.show()
+
+# We want 99% confidence level (alpha = 1 - 0.99) because is two tailed test, then, alpha = 0.01/2
+# Our rejection point is
+
+rej_point = np.abs(st.norm.ppf(1 - 0.005))
+
+# We calculate the z-score
+z = two_mean_z(data_xo, data_pc, var)
+
+# Test hipothesis
+test_hyp(z, rej_point)
+
+'''
 # Taking samples
-sample_xo = sample_mean(data_xo['user_score'], 30, np.min([size_xo, size_pc]) , 'mean_score')
+sample_xo = sample_mean(data_xo['user_score'], 73, np.min([size_xo, size_pc]) , 'mean_score')
 plot_hist([sample_xo])
 
-sample_pc = sample_mean(data_pc['user_score'], 30, np.min([size_xo, size_pc]) , 'mean_score')
+sample_pc = sample_mean(data_pc['user_score'], 73, np.min([size_xo, size_pc]) , 'mean_score')
 plot_hist([sample_pc])
+'''
+
+del data_xo, data_pc, size_xo, size_pc
+
+# Testing users scores mean between action and sport genres
+data_ac = data[data['genre'] == 'Action']
+data_sp = data[data['genre'] == 'Sports']
+
+var = 'user_score'
+
+# Total data
+size_ac = data_ac.shape[0]
+size_sp = data_sp.shape[0]
+print('> Total action genre data:', size_ac)
+print('> Total sports genre data:', size_sp)
+
+# Plot histograms
+plot_hist([data_ac[var], data_sp[var]], name=['Action', 'Sports'], title='User scores', x_label='Score', y_label='Users')
+
+# Plot boxplot
+data_ac.boxplot(column=var, by='genre')
+data_sp.boxplot(column=var, by='genre')
+plt.show()
+
+
+# We want 99% confidence level (alpha = 1 - 0.99) because is two tailed test, then, alpha = 0.01/2
+# Our rejection point is the same
+
+# We calculate the z-score
+z = two_mean_z(data_ac, data_sp, var)
+
+# Test hipothesis
+test_hyp(z, rej_point)
