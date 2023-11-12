@@ -6,9 +6,9 @@ import scipy.stats as st
 
 #///////////////////////////////////////// Functions /////////////////////////////////////////
 
-def plot_hist(data: list, name: list = [], title: str = '', x_label: str = '', y_label: str ='', bins: int = 0) -> None:
+def plot_hist(data: list, name: list = [], title: str = '', x_label: str = '', y_label: str ='', bins: int = 0, rot: float = 0) -> None:
     '''
-    Plot an histogram.
+    Plot an histogram or multiple histograms.
     '''
     lim = len(data)
     if lim > 0 and len(name) == lim:
@@ -16,15 +16,15 @@ def plot_hist(data: list, name: list = [], title: str = '', x_label: str = '', y
         a = 1
         i = 0
         for e in data:
-            e.hist(alpha=a-i)
+            e.hist(alpha=a-i, xrot=rot)
             i += inc
             plt.legend(name)
     else:
         for e in data:
             if bins > 0:
-                e.hist(bins=bins)
+                e.hist(bins=bins, xrot=rot)
             else:
-                e.hist()
+                e.hist(xrot=rot)
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -58,7 +58,7 @@ def single_correlation(data: object, var: list) -> None:
     plt.title(f'Correlation: {corr}')
     plt.show()
 
-def dist_analysis(data: object, objective: str, elements: str, corr_lists: list) -> None:
+def dist_analysis(data: object, objective: str, elements: str, corr_lists: list, xh_label: str = '') -> None:
     '''
     Analysis of data distribution and correlation between multiple variables
     '''
@@ -69,7 +69,11 @@ def dist_analysis(data: object, objective: str, elements: str, corr_lists: list)
     # Ploting hist
     data[objective].hist()
     plt.title(f'Highest value: {h}')
+    plt.xlabel(xh_label)
     plt.show()
+
+    print('> Means: \n', data.groupby(elements)[objective].mean())
+
 
     # Does the data need a transformation?
     res = input('> Does the data need a transformation? (y/n): ')
@@ -176,7 +180,7 @@ data['critic_score'] = data['critic_score'].astype('Int64')
 data['user_score'] = data['user_score'].replace('tbd', None).astype('float')
 
 # Replacing missing data
-data['name'] = data['name'].fillna('unknown') # the only 2 that also doesn't have a genre
+data['name'] = data['name'].fillna('unknown')
 data['genre'] = data['genre'].fillna('unknown') 
 data['rating'] = data['rating'].fillna('unknown')
 
@@ -186,23 +190,27 @@ data['total_sales'] = data['na_sales'] + data['eu_sales'] + data['jp_sales'] + d
 #///////////////////////////////////////// EDA /////////////////////////////////////////
 
 # Ploting year of release
-plot_hist([data['year_of_release']], title='Units released per year', x_label='Year', y_label='Units')
+plot_hist([data['year_of_release']], title='Units released per year', y_label='Units')
 
 # Ploting videogame units per platform
-plot_hist([data['platform']], title='Total videogames per platform', x_label='Platform', y_label='Units')
+plot_hist([data['platform']], title='Total videogames per platform', y_label='Units', rot=90)
 
 # Spliting data by more diverse plataforms
 platform = ['DS', 'X360', 'PS3', 'PS2']
 result = split_data(data, platform, 'Video games available: ')
+
+# Correcting the data
+data['year_of_release'][15957] = 2010
+result[0]['year_of_release'][15957] = 2010
 
 # Ploting videogames per platform
 platform = ['Nintendo DS', 'Xbox 360', 'Playstation 3', 'Playstation 2']
 titles = [f'{c}  titles available per year' for c in platform]
 lim = len(platform)
 for i in range(lim):
-    plot_hist([result[i]['year_of_release']], title=titles[i], x_label='Year', y_label='Units')
+    plot_hist([result[i]['year_of_release']], title=titles[i], y_label='Units')
 
-# Ploting generetion sales per company
+# Ploting videogames by generetion and companies
 companies = ['Microsoft', 'Sony', 'Nintendo', 'Sony portable', 'Nintendo portable']
 platforms = [['XB', 'X360', 'XOne'], ['PS', 'PS2', 'PS3', 'PS4'], ['NES', 'SNES', 'N64', 'GC', 'Wii', 'WiiU'], ['PSP', 'PSV'], ['GB','GBA','DS','3DS']]
 lim = len(companies)
@@ -210,12 +218,12 @@ plats = {companies[i]:platforms[i] for i in range(lim)}
 
 for c in companies:
     plat = plats[c]
-    result = split_data(data, plat, 'Sells: ')
-    plot_hist([d['year_of_release'] for d in result], plat, title=f'Videogames available to {c} consoles', x_label='Year', y_label='Units')
+    result = split_data(data, plat, 'Videogames available: ')
+    plot_hist([d['year_of_release'] for d in result], plat, title=f'Videogames available in {c} consoles', x_label='Year', y_label='Units')
 
 # Printing most selled by platform
 print('> Best selling by platform')
-print(data.groupby('platform')['total_sales'].sum().sort_values(ascending=False))
+print(data.groupby('platform')['total_sales'].sum().sort_values(ascending=False).head(7))
 
 # New data
 data = data[data['year_of_release'] >= 2000]
@@ -228,13 +236,13 @@ data_hc = data[data['platform'].isin(platforms_hc[0] + platforms_hc[1] + platfor
 data_pc = data[data['platform'].isin(platforms_pc[0] + platforms_pc[1])]
 
 # Analysis
-dist_analysis(data_hc, 'total_sales', 'platform', [['critic_score', 'total_sales'], ['user_score', 'total_sales']])
+dist_analysis(data_hc, 'total_sales', 'platform', [['critic_score', 'total_sales'], ['user_score', 'total_sales']], xh_label='Millions of dollars')
 
 # Same analysis, other data
-dist_analysis(data_pc, 'total_sales', 'platform', [['critic_score', 'total_sales'], ['user_score', 'total_sales']])
+dist_analysis(data_pc, 'total_sales', 'platform', [['critic_score', 'total_sales'], ['user_score', 'total_sales']], xh_label='Millions of dollars')
 
 # Distribution by genre in home consoles
-plot_hist([data_hc['genre']], title='Total videogames per genre', x_label='Genre', y_label='Units', bins=len(data_hc['genre'].unique()))
+plot_hist([data_hc['genre']], title='Total videogames per genre', x_label='Genre', y_label='Units', bins=len(data_hc['genre'].unique()), rot=90)
 
 # Best sellers
 print('> Best sellers: \n', data_hc[data_hc['total_sales'] > 10])
@@ -281,8 +289,7 @@ plot_hist([data_xo[var]], title='Xbox One user scores', x_label='Score', y_label
 plot_hist([data_pc[var]], title='PC user scores', x_label='Score', y_label='Users')
 
 # Plot boxplot
-data_xo.boxplot(column=var, by='platform')
-data_pc.boxplot(column=var, by='platform')
+pd.concat([data_xo, data_pc]).boxplot(column=var, by='platform')
 plt.show()
 
 # We want 99% confidence level (alpha = 1 - 0.99) because is two tailed test, then, alpha = 0.01/2
@@ -323,8 +330,7 @@ print('> Total sports genre data:', size_sp)
 plot_hist([data_ac[var], data_sp[var]], name=['Action', 'Sports'], title='User scores', x_label='Score', y_label='Users')
 
 # Plot boxplot
-data_ac.boxplot(column=var, by='genre')
-data_sp.boxplot(column=var, by='genre')
+pd.concat([data_ac, data_sp]).boxplot(column=var, by='platform')
 plt.show()
 
 
